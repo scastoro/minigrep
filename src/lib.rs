@@ -1,8 +1,7 @@
-use std::{error::Error, fs, env};
+use std::{env, error::Error, fs};
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let contents =
-        fs::read_to_string(config.path)?;
+    let contents = fs::read_to_string(config.path)?;
 
     let results = if config.ignore_case {
         search_case_insensitive(&config.query, &contents)
@@ -18,29 +17,18 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut results = vec![];
-    for line in contents.lines() {
-        if line.contains(query) {
-            results.push(line);
-        } 
-    }
-
-    results
+    contents
+        .lines()
+        .filter(|line| line.contains(query))
+        .collect()
 }
 
 pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let query = query.to_lowercase();
-    let mut results = vec![];
-
-    for line in contents.lines() {
-        if line.to_lowercase().contains(&query) {
-            results.push(line);
-        } 
-    }
-
-    results
+    contents
+        .lines()
+        .filter(|line| line.to_lowercase().contains(&query.to_lowercase()))
+        .collect()
 }
-
 
 pub struct Config {
     pub query: String,
@@ -49,17 +37,26 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn build(config: &[String]) -> Result<Config, &'static str> {
-        if config.len() < 3 {
-            return Err("not enough arguments");
-        }
+    pub fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
+        args.next();
 
-        let query = config[1].clone();
-        let path = config[2].clone();
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a query string"),
+        };
+
+        let path = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a path"),
+        };
 
         let ignore_case = env::var("IGNORE_CASE").is_ok();
 
-        Ok(Config { query, path, ignore_case })
+        Ok(Config {
+            query,
+            path,
+            ignore_case,
+        })
     }
 }
 
@@ -88,6 +85,9 @@ safe, fast, productive.
 Pick three.
 Trust me.";
 
-        assert_eq!(vec!["Rust:", "Trust me."], search_case_insensitive(query, contents));
+        assert_eq!(
+            vec!["Rust:", "Trust me."],
+            search_case_insensitive(query, contents)
+        );
     }
 }
